@@ -1,0 +1,129 @@
+###LOAD ASSEMBLY
+[void][reflection.assembly]::LoadWithPartialName("System.Windows.Forms")
+[void][reflection.assembly]::LoadWithPartialName("System.Drawing")
+[void][reflection.assembly]::LoadWithPartialName("System.ComponentModel")
+[void][reflection.assembly]::LoadWithPartialName("System.Resources")
+[void][System.Windows.Forms.Application]::EnableVisualStyles();
+###
+
+### Core Directory Check
+$folder = ".\webpage"
+if (-not (Test-Path $folder)) { md $folder }
+if (-not (Test-Path $folder\sites.txt)) {" " > "$folder\sites.txt"; "please populate the file sites.txt with your desired webpages with the following context, webpage.com, One Per LINE, DO NOT ADD HTTP:// OR ANY Slashes!!
+"; pause; start $folder\sites.txt; Pause}
+$arrurl = GC "$folder\sites.txt"
+
+###
+
+### Creating Objects and Values
+$global:arri = 0
+$SpecialFolders = @{}
+$iname = [Environment+SpecialFolder]::GetNames([Environment+SpecialFolder])
+$iname = $iname | ? {$_ -like "*Internet*"}
+$tempint = [Environment]::GetFolderPath($iname)
+del $tempint\Content.IE5\*.* -force -ErrorAction Ignore
+del $folder\* -exclude *.txt
+#### Webpage Scraping for comic
+
+### Begin initial Web page for each loop
+$arrurl | % {$surl = $_.trim()
+$global:url = $_.trim()
+
+#Internet Explorer Function
+Function internetexplorer {
+$ie = New-Object -COMObject InternetExplorer.Application
+$ie.Navigate("http://$global:url")
+while ($ie.Busy) { Start-Sleep -Milliseconds 400 }
+$source = $ie.document.getElementsByTagName('img') 
+$sources = $source | Select-Object -ExpandProperty src
+$global:comic = $sources | ? {$_ -like "*$surl/comic*/*" -or $_ -like "*$surl/photos*/*"}
+if($global:url -eq "penny-arcade.com"){$global:url = "$global:url/comic"
+$ie.quit
+internetexplorer}
+$ie.quit()}
+### End Internet Explorer Functions
+
+internetexplorer
+### Picture Extraction from IE Cache
+$a = ($global:comic.split('/').count)-1
+$name = $global:comic.split('/')[$a]
+$aname1 = ($name.split('.'))[0]
+$aname2 = ($name.split('.'))[1]
+$file = Get-ChildItem $tempint\ -recurse -force | ? {$_.name -like "$aname1*.$aname2"}
+echo F | xcopy /y $file.fullname $folder\$name
+}
+### End Web page for each loop
+####currently working to here ### FUCK YEAH!!! ###
+
+$global:arrimg = (GCI -path $folder -exclude *.txt)
+
+### Create the form
+
+
+$img = [System.Drawing.Image]::Fromfile($global:arrimg[$global:arri]);
+ 
+$form = new-object Windows.Forms.Form
+$form.Text = "Image Viewer"
+$form.Width = 500;
+$form.Height =  500;
+$form.autoscroll = $true
+####
+write-host $global:arri
+
+
+###buttons
+
+####back
+$back = New-Object System.Windows.Forms.Button
+$back.Anchor=[System.Windows.Forms.AnchorStyles]::Top
+$back.Anchor=[System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left
+$back.Size = New-Object System.Drawing.Size (64,24)
+####Clicking back
+$back.add_click({
+$global:arri--
+if ($global:arri -lt 0){$global:arri = ($global:arrimg).count - 1}
+makepicture
+})
+$form.controls.add($back)
+## End Click
+
+
+####clicking forward
+$forward = New-Object System.Windows.Forms.Button
+$forward.Anchor=[System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Centre
+$forward.Size = New-Object System.Drawing.Size (64,24)
+$forward.add_click({
+$global:arri++
+if ($global:arri -gt (($global:arrimg).count)-1){$global:arri = (($global:arrimg).count - ($global:arrimg).count)}
+makepicture
+})
+$form.controls.add($forward)
+## End Click forward
+## End Buttions
+
+
+
+####picture
+$pictureBox = new-object Windows.Forms.PictureBox
+$pictureBox.Width =  $img.Size.Width;
+$pictureBox.Height =  $img.Size.Height;
+$pictureBox.Image = $img;
+$form.controls.add($pictureBox)
+
+#### create picture
+
+function makepicture {
+$picturebox.image.Dispose()
+$img = [System.Drawing.Image]::Fromfile($global:arrimg[$global:arri].fullname)
+$pictureBox.Width =  $img.Size.Width;
+$pictureBox.Height =  $img.Size.Height;
+$pictureBox.Image = $img
+$PictureBox.Update()
+$PictureBox.Refresh()
+}
+
+#### end creation
+
+$form.Add_Shown( { $form.Activate() } )
+$form.ShowDialog()
+#### 
